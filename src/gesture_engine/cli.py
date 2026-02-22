@@ -17,7 +17,10 @@ import sys
 import time
 from pathlib import Path
 
-import typer
+try:
+    import typer
+except ImportError:
+    raise ImportError("typer is required for CLI. Install with: pip install typer")
 from typing import Optional
 
 app = typer.Typer(

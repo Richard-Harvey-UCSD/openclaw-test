@@ -32,7 +32,11 @@ import numpy as np
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+    _HAS_FASTAPI = True
 except ImportError:
+    _HAS_FASTAPI = False
+
+if not _HAS_FASTAPI:
     raise ImportError("FastAPI required. Install with: pip install fastapi uvicorn")
 
 try:

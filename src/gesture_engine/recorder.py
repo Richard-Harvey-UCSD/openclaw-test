@@ -111,6 +111,16 @@ class GestureRecorder:
         path = Path(path).with_suffix(".npz")
         path.parent.mkdir(parents=True, exist_ok=True)
 
+        if not self._frames:
+            np.savez_compressed(
+                path,
+                timestamps=np.array([], dtype=np.float32),
+                hands=np.zeros((0, 1, 21, 3), dtype=np.float32),
+                hand_counts=np.array([], dtype=np.int32),
+                gesture_data=np.array([json.dumps([])]),
+            )
+            return
+
         timestamps = np.array([f.timestamp for f in self._frames], dtype=np.float32)
         # Store gesture info as JSON string
         gesture_data = json.dumps([f.gestures for f in self._frames])
