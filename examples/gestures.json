@@ -1,0 +1,73 @@
+{
+  "gestures": [
+    {
+      "name": "open_hand",
+      "fingers": {
+        "thumb": "extended",
+        "index": "extended",
+        "middle": "extended",
+        "ring": "extended",
+        "pinky": "extended"
+      }
+    },
+    {
+      "name": "fist",
+      "fingers": {
+        "thumb": "curled",
+        "index": "curled",
+        "middle": "curled",
+        "ring": "curled",
+        "pinky": "curled"
+      }
+    },
+    {
+      "name": "thumbs_up",
+      "fingers": {
+        "thumb": "extended",
+        "index": "curled",
+        "middle": "curled",
+        "ring": "curled",
+        "pinky": "curled"
+      }
+    },
+    {
+      "name": "peace",
+      "fingers": {
+        "thumb": "curled",
+        "index": "extended",
+        "middle": "extended",
+        "ring": "curled",
+        "pinky": "curled"
+      }
+    },
+    {
+      "name": "pointing",
+      "fingers": {
+        "thumb": "curled",
+        "index": "extended",
+        "middle": "curled",
+        "ring": "curled",
+        "pinky": "curled"
+      }
+    },
+    {
+      "name": "custom_example",
+      "fingers": {
+        "thumb": "extended",
+        "index": "extended",
+        "middle": "curled",
+        "ring": "curled",
+        "pinky": "curled"
+      },
+      "min_confidence": 0.7,
+      "constraints": [
+        {
+          "type": "angle",
+          "landmarks": [4, 0, 8],
+          "min_angle": 30,
+          "max_angle": 90
+        }
+      ]
+    }
+  ]
+}
