@@ -129,8 +129,9 @@ class BimanualDetector:
 
     def _check_cooldown(self, gesture: str, now: float, cooldown: float = 0.5) -> bool:
         """Returns True if gesture is NOT in cooldown."""
-        last = self._cooldowns.get(gesture, 0.0)
-        if now - last < cooldown:
+        if gesture not in self._cooldowns:
+            return True
+        if now - self._cooldowns[gesture] < cooldown:
             return False
         return True
 
