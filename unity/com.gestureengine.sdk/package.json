@@ -1,0 +1,43 @@
+{
+  "name": "com.gestureengine.sdk",
+  "version": "0.5.0",
+  "displayName": "GestureEngine SDK",
+  "description": "Real-time hand gesture recognition for Unity. Connects to GestureEngine server via WebSocket or runs native inference.",
+  "unity": "2020.3",
+  "unityRelease": "0f1",
+  "keywords": [
+    "gesture",
+    "hand-tracking",
+    "XR",
+    "VR",
+    "AR",
+    "mediapipe",
+    "websocket"
+  ],
+  "author": {
+    "name": "GestureEngine",
+    "url": "https://github.com/yourorg/gesture-engine"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourorg/gesture-engine.git"
+  },
+  "samples": [
+    {
+      "displayName": "Basic Gestures",
+      "description": "Simple gesture detection and logging",
+      "path": "Samples~/BasicGestures"
+    },
+    {
+      "displayName": "Gesture Controller",
+      "description": "Move a character using hand gestures",
+      "path": "Samples~/GestureController"
+    },
+    {
+      "displayName": "Hand Visualization",
+      "description": "3D visualization of hand landmarks",
+      "path": "Samples~/HandVisualization"
+    }
+  ]
+}

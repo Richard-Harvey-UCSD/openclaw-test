@@ -223,6 +223,43 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
+## 🎮 Unity SDK
+
+GestureEngine includes a full Unity SDK for XR/game developers.
+
+### Installation (Unity Package Manager)
+
+1. Open **Window → Package Manager** → **+** → **Add package from git URL**
+2. Enter: `https://github.com/yourorg/gesture-engine.git?path=unity/com.gestureengine.sdk`
+
+### Quick Start
+
+```csharp
+using GestureEngine;
+
+public class MyGame : MonoBehaviour
+{
+    void Start()
+    {
+        GestureManager.Instance.OnGesture.AddListener(evt =>
+        {
+            Debug.Log($"Detected: {evt.gesture} ({evt.confidence:P0})");
+        });
+    }
+}
+```
+
+### Features
+
+- **WebSocket client** — connects to GestureEngine server, auto-reconnect, main-thread marshaling
+- **GestureManager** — singleton MonoBehaviour with UnityEvents for all event types
+- **GestureBinding** — map gestures to actions in the Inspector (with confidence thresholds and cooldowns)
+- **Hand visualization** — 21-landmark spheres + bone lines in Scene and Game view
+- **Native C# classifier** — run gesture recognition without the Python server
+- **Cross-platform definitions** — same JSON gesture format works in Python and C#
+
+See [Unity SDK docs](unity/com.gestureengine.sdk/README.md) and [Protocol docs](docs/PROTOCOL.md) for details.
+
 ## 📄 License
 
 MIT
