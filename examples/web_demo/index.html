@@ -6,50 +6,87 @@
 <title>GestureEngine — Live Demo</title>
 <style>
   :root {
-    --bg: #0a0a0f;
-    --surface: #13131a;
-    --border: #1e1e2e;
-    --text: #e0e0e8;
-    --muted: #6b6b80;
+    --bg: #05050a;
+    --surface: #0d0d14;
+    --surface-2: #13131e;
+    --border: #1a1a2e;
+    --text: #e8e8f0;
+    --muted: #5a5a72;
     --accent: #6c63ff;
-    --accent-glow: rgba(108, 99, 255, 0.3);
+    --accent-light: #8b83ff;
+    --accent-glow: rgba(108, 99, 255, 0.2);
     --green: #22c55e;
     --red: #ef4444;
     --yellow: #eab308;
+    --cyan: #06b6d4;
+    --pink: #ec4899;
+    --radius: 12px;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
     overflow-x: hidden;
   }
 
+  /* Header */
   .header {
-    padding: 24px 32px;
+    padding: 16px 32px;
     border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    backdrop-filter: blur(12px);
+    background: rgba(5, 5, 10, 0.8);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
-  .header h1 {
+  .header-left { display: flex; align-items: center; gap: 24px; }
+
+  .logo {
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
-  .header h1 span { color: var(--accent); }
+  .nav { display: flex; gap: 4px; }
+
+  .nav a {
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .nav a:hover, .nav a.active {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+
+  .nav a.active {
+    color: var(--accent-light);
+    background: var(--accent-glow);
+  }
 
   .status {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--muted);
+    font-family: 'SF Mono', 'Fira Code', monospace;
   }
 
   .status-dot {
@@ -57,57 +94,87 @@
     height: 8px;
     border-radius: 50%;
     background: var(--red);
-    transition: background 0.3s;
+    transition: all 0.3s;
   }
 
-  .status-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .status-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+  }
 
+  /* Main layout */
   .main {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 340px;
     gap: 0;
-    min-height: calc(100vh - 73px);
+    min-height: calc(100vh - 57px);
   }
 
+  /* Center area */
   .center {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 48px;
-    gap: 32px;
+    gap: 40px;
+    position: relative;
+  }
+
+  /* Ambient glow effect */
+  .center::before {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    pointer-events: none;
+    transition: opacity 0.5s;
+    opacity: 0.3;
   }
 
   .gesture-display {
     text-align: center;
-  }
-
-  .gesture-name {
-    font-size: 64px;
-    font-weight: 700;
-    letter-spacing: -2px;
-    color: var(--accent);
-    text-shadow: 0 0 40px var(--accent-glow);
-    transition: all 0.15s ease;
-    min-height: 80px;
-  }
-
-  .gesture-name.sequence {
-    color: var(--yellow);
-    text-shadow: 0 0 40px rgba(234, 179, 8, 0.3);
+    position: relative;
+    z-index: 1;
   }
 
   .gesture-emoji {
-    font-size: 96px;
+    font-size: 100px;
     margin-bottom: 16px;
-    min-height: 110px;
+    min-height: 120px;
     display: block;
+    filter: drop-shadow(0 0 20px rgba(108, 99, 255, 0.3));
+    transition: transform 0.15s ease;
+  }
+
+  .gesture-emoji.pop { transform: scale(1.15); }
+
+  .gesture-name {
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--text);
+    min-height: 70px;
+    transition: all 0.15s ease;
+  }
+
+  .gesture-name.sequence { color: var(--yellow); }
+  .gesture-name.trajectory { color: var(--cyan); }
+  .gesture-name.bimanual { color: var(--pink); }
+
+  .gesture-subtext {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-family: 'SF Mono', monospace;
   }
 
   .confidence-bar {
-    margin-top: 16px;
-    width: 300px;
-    height: 4px;
+    margin-top: 20px;
+    width: 320px;
+    height: 3px;
     background: var(--border);
     border-radius: 2px;
     overflow: hidden;
@@ -117,130 +184,189 @@
 
   .confidence-fill {
     height: 100%;
-    background: var(--accent);
+    background: linear-gradient(90deg, var(--accent), var(--cyan));
     border-radius: 2px;
     transition: width 0.15s ease;
     width: 0%;
   }
 
-  .confidence-label {
-    font-size: 13px;
-    color: var(--muted);
-    margin-top: 8px;
-  }
-
+  /* Metrics bar */
   .metrics {
     display: flex;
-    gap: 32px;
+    gap: 40px;
+    position: relative;
+    z-index: 1;
   }
 
   .metric {
     text-align: center;
+    padding: 16px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    min-width: 100px;
   }
 
   .metric-value {
-    font-size: 28px;
-    font-weight: 600;
+    font-size: 24px;
+    font-weight: 700;
+    font-family: 'SF Mono', monospace;
     color: var(--text);
   }
 
   .metric-label {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     margin-top: 4px;
   }
 
+  /* Heatmap */
+  .heatmap-section {
+    width: 100%;
+    max-width: 600px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .heatmap-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .heatmap-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .heatmap-cell {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: 'SF Mono', monospace;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .heatmap-cell .count {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  /* Sidebar */
   .sidebar {
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    background: var(--surface);
   }
 
   .sidebar-header {
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .badge {
+    background: var(--accent-glow);
+    color: var(--accent-light);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
   }
 
   .timeline {
     flex: 1;
     overflow-y: auto;
-    padding: 8px 0;
+    padding: 4px 0;
   }
+
+  .timeline::-webkit-scrollbar { width: 4px; }
+  .timeline::-webkit-scrollbar-track { background: transparent; }
+  .timeline::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
   .timeline-item {
     padding: 10px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid rgba(26, 26, 46, 0.5);
     animation: slideIn 0.2s ease;
+    transition: background 0.2s;
   }
 
-  .timeline-item.sequence-item {
-    background: rgba(234, 179, 8, 0.05);
-  }
+  .timeline-item:hover { background: rgba(108, 99, 255, 0.03); }
+  .timeline-item.seq-item { border-left: 2px solid var(--yellow); }
+  .timeline-item.traj-item { border-left: 2px solid var(--cyan); }
+  .timeline-item.bi-item { border-left: 2px solid var(--pink); }
 
   @keyframes slideIn {
-    from { opacity: 0; transform: translateX(10px); }
-    to { opacity: 1; transform: translateX(0); }
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .timeline-gesture {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .timeline-gesture.seq { color: var(--yellow); }
+  .timeline-gesture.traj { color: var(--cyan); }
+  .timeline-gesture.bi { color: var(--pink); }
 
   .timeline-meta {
     text-align: right;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
-  }
-
-  .timeline-confidence {
-    display: inline-block;
-    width: 40px;
-    height: 3px;
-    background: var(--border);
-    border-radius: 1.5px;
-    overflow: hidden;
-    vertical-align: middle;
-    margin-left: 6px;
-  }
-
-  .timeline-confidence-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 1.5px;
+    font-family: 'SF Mono', monospace;
   }
 
   .no-gesture {
     color: var(--muted);
-    font-size: 14px;
+    font-size: 13px;
     text-align: center;
     padding: 48px 20px;
+    line-height: 1.8;
   }
 
   @media (max-width: 768px) {
     .main { grid-template-columns: 1fr; }
-    .sidebar { border-left: none; border-top: 1px solid var(--border); max-height: 250px; }
-    .gesture-name { font-size: 40px; }
+    .sidebar { border-left: none; border-top: 1px solid var(--border); max-height: 280px; }
+    .gesture-name { font-size: 36px; }
     .gesture-emoji { font-size: 64px; }
-    .center { padding: 24px; }
+    .center { padding: 24px; gap: 24px; }
+    .metrics { gap: 12px; flex-wrap: wrap; }
+    .nav { display: none; }
   }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1><span>Gesture</span>Engine</h1>
+  <div class="header-left">
+    <div class="logo">GestureEngine</div>
+    <nav class="nav">
+      <a href="/" class="active">Live</a>
+      <a href="/canvas">Canvas</a>
+    </nav>
+  </div>
   <div class="status">
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connecting...</span>
@@ -251,11 +377,11 @@
   <div class="center">
     <div class="gesture-display">
       <span class="gesture-emoji" id="gestureEmoji">👋</span>
-      <div class="gesture-name" id="gestureName">Waiting...</div>
+      <div class="gesture-name" id="gestureName">Waiting for hands...</div>
+      <div class="gesture-subtext" id="gestureSubtext">Point your camera at your hands</div>
       <div class="confidence-bar">
         <div class="confidence-fill" id="confidenceFill"></div>
       </div>
-      <div class="confidence-label" id="confidenceLabel">—</div>
     </div>
 
     <div class="metrics">
@@ -276,12 +402,23 @@
         <div class="metric-label">Events</div>
       </div>
     </div>
+
+    <div class="heatmap-section">
+      <div class="heatmap-title">Gesture Frequency</div>
+      <div class="heatmap-grid" id="heatmapGrid"></div>
+    </div>
   </div>
 
   <div class="sidebar">
-    <div class="sidebar-header">Event Timeline</div>
+    <div class="sidebar-header">
+      <span>Event Stream</span>
+      <span class="badge" id="eventCount">0</span>
+    </div>
     <div class="timeline" id="timeline">
-      <div class="no-gesture">No gestures detected yet</div>
+      <div class="no-gesture">
+        No gestures detected yet.<br>
+        Show your hands to the camera 🖐️
+      </div>
     </div>
   </div>
 </div>
@@ -292,12 +429,20 @@ const EMOJI_MAP = {
   pointing: '👆', rock_on: '🤘', ok_sign: '👌',
   release: '🫳', grab: '🤏', pinch_release: '🫴',
   peace_out: '🤞', wave: '👋', point_and_click: '🖱️',
+  swipe_right: '👉', swipe_left: '👈', swipe_up: '☝️', swipe_down: '👇',
+  circle_cw: '🔄', circle_ccw: '🔃', z_pattern: '⚡',
+  pinch_zoom: '🔍', clap: '👏', frame: '🖼️',
+  conduct_up: '🎵', conduct_down: '🎶',
+};
+
+const COLOR_MAP = {
+  gesture: '#6c63ff', sequence: '#eab308',
+  trajectory: '#06b6d4', bimanual: '#ec4899',
 };
 
 const wsUrl = `ws://${location.host}/ws`;
-let ws;
-let totalEvents = 0;
-let reconnectTimer;
+let ws, totalEvents = 0, reconnectTimer;
+const heatmap = {};
 
 function connect() {
   ws = new WebSocket(wsUrl);
@@ -321,27 +466,34 @@ function connect() {
 
     if (msg.type === 'gesture') {
       totalEvents++;
-      document.getElementById('gestureEmoji').textContent = EMOJI_MAP[msg.gesture] || '🤚';
-      const nameEl = document.getElementById('gestureName');
-      nameEl.textContent = msg.gesture.replace(/_/g, ' ');
-      nameEl.classList.remove('sequence');
-      document.getElementById('confidenceFill').style.width = (msg.confidence * 100) + '%';
-      document.getElementById('confidenceLabel').textContent = (msg.confidence * 100).toFixed(0) + '% confidence';
-      document.getElementById('totalValue').textContent = totalEvents;
-
-      addTimelineItem(msg.gesture, msg.confidence, false);
+      heatmap[msg.gesture] = (heatmap[msg.gesture] || 0) + 1;
+      showGesture(msg.gesture, msg.confidence, 'gesture');
+      addTimeline(msg.gesture, msg.confidence, 'gesture');
+      updateHeatmap();
     }
 
     if (msg.type === 'sequence') {
       totalEvents++;
-      document.getElementById('gestureEmoji').textContent = EMOJI_MAP[msg.sequence] || '⚡';
-      const nameEl = document.getElementById('gestureName');
-      nameEl.textContent = msg.sequence.replace(/_/g, ' ');
-      nameEl.classList.add('sequence');
-      document.getElementById('confidenceLabel').textContent = `sequence: ${msg.gestures.join(' → ')}`;
-      document.getElementById('totalValue').textContent = totalEvents;
+      heatmap[msg.sequence] = (heatmap[msg.sequence] || 0) + 1;
+      showGesture(msg.sequence, null, 'sequence', msg.gestures.join(' → '));
+      addTimeline(msg.sequence, null, 'seq');
+      updateHeatmap();
+    }
 
-      addTimelineItem(msg.sequence, null, true);
+    if (msg.type === 'trajectory') {
+      totalEvents++;
+      heatmap[msg.name] = (heatmap[msg.name] || 0) + 1;
+      showGesture(msg.name, msg.score, 'trajectory');
+      addTimeline(msg.name, msg.score, 'traj');
+      updateHeatmap();
+    }
+
+    if (msg.type === 'bimanual') {
+      totalEvents++;
+      heatmap[msg.gesture] = (heatmap[msg.gesture] || 0) + 1;
+      showGesture(msg.gesture, msg.confidence, 'bimanual', `value: ${msg.value.toFixed(3)}`);
+      addTimeline(msg.gesture, msg.confidence, 'bi');
+      updateHeatmap();
     }
 
     if (msg.type === 'stats') {
@@ -350,38 +502,66 @@ function connect() {
       document.getElementById('handsValue').textContent = msg.hands_detected;
     }
 
-    if (msg.type === 'ping') {
-      ws.send(JSON.stringify({ type: 'ping' }));
-    }
+    if (msg.type === 'ping') ws.send(JSON.stringify({ type: 'ping' }));
   };
 }
 
-function addTimelineItem(name, confidence, isSequence) {
+function showGesture(name, confidence, type, subtext) {
+  const emoji = document.getElementById('gestureEmoji');
+  emoji.textContent = EMOJI_MAP[name] || '🤚';
+  emoji.classList.add('pop');
+  setTimeout(() => emoji.classList.remove('pop'), 150);
+
+  const nameEl = document.getElementById('gestureName');
+  nameEl.textContent = name.replace(/_/g, ' ');
+  nameEl.className = 'gesture-name ' + type;
+
+  const sub = document.getElementById('gestureSubtext');
+  if (subtext) sub.textContent = subtext;
+  else if (confidence !== null) sub.textContent = `${(confidence * 100).toFixed(0)}% confidence`;
+  else sub.textContent = type;
+
+  if (confidence !== null) {
+    document.getElementById('confidenceFill').style.width = (confidence * 100) + '%';
+  }
+  document.getElementById('totalValue').textContent = totalEvents;
+  document.getElementById('eventCount').textContent = totalEvents;
+}
+
+function addTimeline(name, confidence, type) {
   const timeline = document.getElementById('timeline');
   const noGesture = timeline.querySelector('.no-gesture');
   if (noGesture) noGesture.remove();
 
   const item = document.createElement('div');
-  item.className = 'timeline-item' + (isSequence ? ' sequence-item' : '');
+  item.className = `timeline-item ${type}-item`;
 
   const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-  let confHtml = '';
-  if (confidence !== null) {
-    confHtml = `<div class="timeline-confidence"><div class="timeline-confidence-fill" style="width:${confidence*100}%"></div></div>`;
-  }
+  const prefix = type === 'seq' ? '⚡' : type === 'traj' ? '↗' : type === 'bi' ? '🤝' : '';
+  const confText = confidence !== null ? ` ${(confidence*100).toFixed(0)}%` : '';
 
   item.innerHTML = `
-    <span class="timeline-gesture ${isSequence ? 'seq' : ''}">${isSequence ? '⚡ ' : ''}${name.replace(/_/g, ' ')}</span>
-    <span class="timeline-meta">${now}${confHtml}</span>
+    <span class="timeline-gesture ${type}">${prefix} ${name.replace(/_/g, ' ')}</span>
+    <span class="timeline-meta">${now}${confText}</span>
   `;
 
   timeline.insertBefore(item, timeline.firstChild);
+  while (timeline.children.length > 100) timeline.removeChild(timeline.lastChild);
+}
 
-  // Keep max 50 items
-  while (timeline.children.length > 50) {
-    timeline.removeChild(timeline.lastChild);
-  }
+function updateHeatmap() {
+  const grid = document.getElementById('heatmapGrid');
+  const entries = Object.entries(heatmap).sort((a, b) => b[1] - a[1]);
+  const maxCount = entries.length ? entries[0][1] : 1;
+
+  grid.innerHTML = entries.map(([name, count]) => {
+    const intensity = Math.min(1, count / maxCount);
+    const bg = `rgba(108, 99, 255, ${0.05 + intensity * 0.25})`;
+    const border = `rgba(108, 99, 255, ${0.1 + intensity * 0.4})`;
+    return `<div class="heatmap-cell" style="background:${bg};border-color:${border}">
+      ${name.replace(/_/g, ' ')} <span class="count">${count}</span>
+    </div>`;
+  }).join('');
 }
 
 connect();

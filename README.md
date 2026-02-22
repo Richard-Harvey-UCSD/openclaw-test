@@ -6,7 +6,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org)
 [![Tests](https://github.com/yourorg/gesture-engine/actions/workflows/test.yml/badge.svg)](https://github.com/yourorg/gesture-engine/actions)
 
-GestureEngine turns any RGB camera into a gesture input device. It runs on a Raspberry Pi, ships with a WebSocket streaming API, and recognizes both individual gestures and multi-gesture sequences — all in under 5ms per frame.
+GestureEngine turns any RGB camera into a gesture input device. It runs on a Raspberry Pi, ships with a WebSocket streaming API, and recognizes gestures, spatial movements, two-hand interactions, and even lets you finger-paint in the air — all in under 5ms per frame.
 
 ---
 
@@ -36,6 +36,11 @@ docker-compose up --build
 |---------|-------------|
 | **7 built-in gestures** | open_hand, fist, thumbs_up, peace, pointing, rock_on, ok_sign |
 | **6 gesture sequences** | release, grab, wave, peace_out, pinch_release, point_and_click |
+| **8 spatial trajectories** | swipe L/R/U/D, circle CW/CCW, Z-pattern, wave — via DTW matching |
+| **4 two-hand gestures** | pinch-to-zoom, clap, frame, conducting |
+| **Air drawing canvas** | Finger painting with gesture-based color switching and erasing |
+| **Plugin system** | Drop a .py file in plugins/ — auto-loads and receives all events |
+| **Prometheus metrics** | `/metrics` endpoint with latency histograms, gesture counters |
 | **Action mapping** | Map gestures to keyboard shortcuts, shell commands, webhooks, OSC |
 | **CLI toolchain** | `serve`, `train`, `record`, `replay`, `benchmark`, `define`, `export` |
 | **ONNX/TFLite export** | Edge deployment with INT8 quantization for Pi hardware |
@@ -43,7 +48,7 @@ docker-compose up --build
 | **Adaptive thresholds** | Auto-adjusting confidence per gesture based on confusion rates |
 | **Performance profiler** | Per-stage timing (detection, classification, sequences) |
 | **WebSocket streaming** | Real-time events pushed to any client |
-| **Browser demo** | Dark-themed live UI with confidence meters and timeline |
+| **Browser demo** | Dark-themed live UI with gesture heatmap and air canvas |
 | **Recording & replay** | Capture sessions for testing without a camera |
 | **Docker support** | One-command demo with webcam passthrough |
 | **CI/CD** | GitHub Actions with pytest on Python 3.10-3.12 |
@@ -51,161 +56,171 @@ docker-compose up --build
 ## 🏗 Architecture
 
 ```
-Camera Frame (RGB)
-       │
-       ▼
-┌─────────────┐
-│ HandDetector │  ← MediaPipe (21 3D landmarks)
-└──────┬──────┘
-       │ Normalized landmarks (wrist-centered, scale-invariant)
-       ▼
-┌─────────────┐
-│ HandTracker  │  ← Stable hand IDs via centroid matching
-└──────┬──────┘
-       │
-       ▼
-┌──────────────────┐
-│ GestureClassifier │  ← Rule-based OR trained MLP (81-dim features)
-└──────┬───────────┘
-       │
-       ▼
-┌────────────────────┐
-│ AdaptiveThresholds  │  ← Per-gesture confidence auto-tuning
-└──────┬─────────────┘
-       │
-  ┌────┴────┐
-  ▼         ▼
-Gesture   Sequence     →  ActionMapper  →  Keyboard / Shell / Webhook / OSC
-Events    Detection
+Camera → HandDetector → HandTracker → GestureClassifier → Temporal Smoothing
+                                                               │
+                          ┌────────────────────────────────────┤
+                          │              │           │         │
+                   SequenceDetector  TrajectoryTracker  BimanualDetector
+                          │              │           │         │
+                          └──────────┬───┘           │    DrawingCanvas
+                                     │               │         │
+                              ActionMapper    PluginManager  WebSocket
+                                     │               │      Broadcast
+                                  Execute        Dispatch       │
+                            (keyboard/shell/     to all      Browser
+                             webhook/OSC)       plugins       Demo
 ```
 
-## 🖥 CLI Reference
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full technical deep-dive.
 
-```bash
-# Start the server with action mappings
-gesture-engine serve --port 8765 --actions config/actions.example.yml
+## 📡 API
 
-# Record gesture data from camera
-gesture-engine record -o session.json --duration 30
+### WebSocket Events
 
-# Train MLP classifier from recordings
-gesture-engine train ./recordings/ --output model.pt --epochs 200
+Connect to `ws://host:port/ws` for real-time gesture events:
 
-# Replay a recorded session
-gesture-engine replay session.json --speed 2.0
-
-# Run benchmarks
-gesture-engine benchmark --iterations 5000
-
-# Define a gesture interactively
-gesture-engine define
-
-# Export model for edge deployment
-gesture-engine export model.pt --format onnx --output gesture_model
-gesture-engine export model.pt --format tflite --int8
+```json
+{"type": "gesture", "gesture": "peace", "confidence": 0.95, "hand_index": 0}
+{"type": "sequence", "sequence": "release", "gestures": ["fist", "open_hand"]}
+{"type": "trajectory", "name": "swipe_right", "score": 0.82}
+{"type": "bimanual", "gesture": "pinch_zoom", "value": 1.35}
 ```
 
-## ⚡ Action Mapping
+Connect to `ws://host:port/ws/canvas` for finger painting canvas events.
 
-Map gestures to real actions via YAML config:
+### REST API
 
-```yaml
-# config/actions.yml
-mappings:
-  - trigger: thumbs_up
-    min_confidence: 0.8
-    actions:
-      - type: keyboard
-        params: { keys: "space" }
-        description: "Play/pause media"
-        cooldown: 1.0
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/status` | Server status, FPS, latency, client count |
+| `GET /api/gestures` | List gesture definitions |
+| `GET /api/heatmap` | Gesture frequency data |
+| `GET /api/trajectories` | Registered trajectory templates |
+| `GET /api/plugins` | Loaded plugins |
+| `GET /metrics` | Prometheus metrics |
 
-  - trigger: pointing
-    actions:
-      - type: keyboard
-        params: { keys: "Right" }
-        cooldown: 1.5
+See [docs/API.md](docs/API.md) for full documentation.
 
-  - trigger: grab  # sequence trigger
-    actions:
-      - type: webhook
-        params:
-          url: "http://localhost:8080/api/grab"
-        cooldown: 2.0
+## 🎨 Air Drawing
 
-  - trigger: fist
-    actions:
-      - type: osc
-        params:
-          address: "/gesture/fist"
-          port: 9000
-```
+Point your index finger to draw. Change colors with gestures:
 
-Action types: `keyboard` (xdotool), `shell`, `webhook` (HTTP POST), `osc`, `log`.
+| Gesture | Action |
+|---------|--------|
+| ☝️ Point | Draw (white) |
+| ✌️ Peace | Draw (green) |
+| 🤘 Rock on | Draw (red) |
+| 👌 OK sign | Draw (blue) |
+| ✊ Fist | Erase |
+| 🖐 Open hand shake | Clear canvas |
 
-## 📦 Model Export
+Visit `http://localhost:8765/canvas` for the live canvas demo.
 
-Export trained models for edge deployment:
+## 🔌 Plugins
+
+Create `plugins/my_plugin.py`:
 
 ```python
-from gesture_engine.classifier import GestureClassifier
-from gesture_engine.export import ModelExporter
+from gesture_engine.plugins import GesturePlugin, PluginEvent
 
-classifier = GestureClassifier(model_path="model.pt")
-exporter = ModelExporter(classifier)
+class MyPlugin(GesturePlugin):
+    name = "my_plugin"
 
-# ONNX (universal)
-exporter.to_onnx("gesture_model.onnx")
+    def on_gesture(self, event: PluginEvent):
+        if event.name == "thumbs_up":
+            print("Approved!")
 
-# TFLite with INT8 quantization (Raspberry Pi)
-exporter.to_tflite("gesture_model.tflite", quantize_int8=True, representative_data=X)
+    def on_trajectory(self, event: PluginEvent):
+        if event.name == "swipe_right":
+            print("Next slide!")
 ```
 
-## 📊 Performance Profiling
+Plugins auto-load on server start. See `plugins/example_logger.py` for a full example.
 
-Every pipeline stage is instrumented:
+## ↗️ Spatial Gestures
+
+Track hand movement through space using Dynamic Time Warping:
 
 ```python
-pipeline = GesturePipeline(enable_profiling=True)
-# ... process frames ...
+from gesture_engine import TrajectoryTracker
 
-stats = pipeline.stats
-print(stats.profiler_summary)
-# {'detection': {'avg_ms': 2.1, 'p95_ms': 3.4, ...},
-#  'classification': {'avg_ms': 0.3, 'p95_ms': 0.5, ...}, ...}
+tracker = TrajectoryTracker.with_defaults()
+
+# Built-in: swipe_right, swipe_left, swipe_up, swipe_down,
+#           circle_cw, circle_ccw, z_pattern, wave
+
+# Record custom trajectories:
+tracker.start_recording("heart")
+# ... feed frames ...
+tracker.stop_recording()
 ```
 
-## 🔧 Installation
+## 🤝 Two-Hand Gestures
+
+```python
+from gesture_engine import BimanualDetector
+
+detector = BimanualDetector()
+events = detector.update(hands=[(0, left_lm), (1, right_lm)])
+
+# Detects: pinch_zoom, clap, frame, conduct_up, conduct_down
+```
+
+## 📊 Monitoring
+
+Prometheus-compatible metrics at `/metrics`:
+
+```
+gesture_engine_gestures_total{gesture="peace"} 142
+gesture_engine_frame_latency_seconds_bucket{le="0.005"} 1200
+gesture_engine_active_connections 3
+```
+
+## ⚡ Performance
+
+Benchmarked on desktop (i7-12700K) and Raspberry Pi 4:
+
+| Stage | Desktop | RPi 4 |
+|-------|---------|-------|
+| Hand detection | 3-5ms | 15-20ms |
+| Classification | <0.1ms | 0.3ms |
+| Full pipeline | 4-6ms | 18-25ms |
+| Throughput | 180+ FPS | 40-55 FPS |
 
 ```bash
-# Core (detection + classification)
+gesture-engine benchmark --iterations 1000
+```
+
+## 🛠 CLI
+
+```bash
+gesture-engine serve       # Start WebSocket server + web demo
+gesture-engine train       # Train MLP from collected data
+gesture-engine record      # Record landmark data from camera
+gesture-engine replay      # Replay a recorded session
+gesture-engine benchmark   # Run performance benchmarks
+gesture-engine define      # Interactive gesture definition
+gesture-engine export      # Export model to ONNX/TFLite
+```
+
+## 📦 Installation
+
+```bash
+# Minimal (classification only, no camera)
 pip install -e .
 
-# With server
-pip install -e ".[server,cli]"
+# With camera support
+pip install -e ".[camera]"
 
-# Everything
-pip install -e ".[all,cli,export]"
-
-# Development
-pip install -e ".[dev]"
+# Full stack
+pip install -e ".[all,cli,dev]"
 ```
 
 ## 🧪 Testing
 
 ```bash
+pip install -e ".[dev]"
 pytest tests/ -v
-```
-
-## 🐳 Docker
-
-```bash
-# Build and run with webcam
-docker-compose up --build
-
-# Or standalone
-docker build -t gesture-engine .
-docker run -p 8765:8765 --device /dev/video0 gesture-engine
 ```
 
 ## 📄 License
