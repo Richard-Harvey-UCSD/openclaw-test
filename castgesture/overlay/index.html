@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CastGesture Overlay</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  canvas#fx {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+  }
+  canvas#skeleton {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.4;
+  }
+  #screen-fx {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 20;
+  }
+  #text-layer {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    z-index: 30;
+  }
+  .text-pop {
+    font-size: 120px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 40px rgba(168,85,247,0.8), 0 0 80px rgba(6,182,212,0.5), 0 4px 8px rgba(0,0,0,0.5);
+    opacity: 0;
+    transform: scale(0.3);
+    animation: textPopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    letter-spacing: -2px;
+  }
+  .text-pop.out {
+    animation: textPopOut 0.5s ease-in forwards;
+  }
+  @keyframes textPopIn {
+    0% { opacity: 0; transform: scale(0.3) rotate(-5deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+  @keyframes textPopOut {
+    0% { opacity: 1; transform: scale(1) translateY(0); }
+    100% { opacity: 0; transform: scale(1.2) translateY(-40px); }
+  }
+  @keyframes screenShake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-8px, -6px); }
+    20% { transform: translate(8px, 4px); }
+    30% { transform: translate(-6px, 8px); }
+    40% { transform: translate(6px, -8px); }
+    50% { transform: translate(-4px, 6px); }
+    60% { transform: translate(4px, -4px); }
+    70% { transform: translate(-8px, 4px); }
+    80% { transform: translate(6px, -6px); }
+    90% { transform: translate(-4px, 8px); }
+  }
+  .shaking { animation: screenShake 0.5s ease-in-out; }
+  .flash-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .flash-overlay.active {
+    animation: flashAnim 0.3s ease-out forwards;
+  }
+  @keyframes flashAnim {
+    0% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+  #spotlight {
+    position: fixed;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(168,85,247,0.3) 0%, rgba(168,85,247,0.1) 40%, transparent 70%);
+    box-shadow: 0 0 60px 30px rgba(168,85,247,0.15);
+    pointer-events: none;
+    z-index: 8;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease, left 0.1s ease-out, top 0.1s ease-out;
+  }
+  #spotlight.active { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="skeleton"></canvas>
+<canvas id="fx"></canvas>
+<div id="screen-fx"></div>
+<div id="text-layer"></div>
+<div class="flash-overlay" id="flash"></div>
+<div id="spotlight"></div>
+
+<script>
+// ============================================================
+// CastGesture Overlay — Effect Renderer
+// ============================================================
+const WS_URL = `ws://${location.hostname || 'localhost'}:${location.port || 7555}/ws`;
+const fxCanvas = document.getElementById('fx');
+const fxCtx = fxCanvas.getContext('2d');
+const skelCanvas = document.getElementById('skeleton');
+const skelCtx = skelCanvas.getContext('2d');
+const textLayer = document.getElementById('text-layer');
+const flashEl = document.getElementById('flash');
+const spotlightEl = document.getElementById('spotlight');
+const screenFx = document.getElementById('screen-fx');
+
+let W, H;
+function resize() {
+  W = fxCanvas.width = skelCanvas.width = window.innerWidth;
+  H = fxCanvas.height = skelCanvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ---- Particle system ----
+const particles = [];
+
+class Particle {
+  constructor(opts) {
+    this.x = opts.x ?? W/2;
+    this.y = opts.y ?? H/2;
+    this.vx = opts.vx ?? (Math.random()-0.5)*12;
+    this.vy = opts.vy ?? (Math.random()-0.5)*12;
+    this.gravity = opts.gravity ?? 0.15;
+    this.friction = opts.friction ?? 0.99;
+    this.life = opts.life ?? 2;
+    this.maxLife = this.life;
+    this.size = opts.size ?? (Math.random()*6 + 2);
+    this.color = opts.color ?? '#a855f7';
+    this.shape = opts.shape ?? 'rect'; // rect, circle, emoji
+    this.emoji = opts.emoji ?? '✌️';
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotSpeed = (Math.random()-0.5)*0.2;
+    this.dead = false;
+  }
+  update(dt) {
+    this.vy += this.gravity;
+    this.vx *= this.friction;
+    this.vy *= this.friction;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.rotation += this.rotSpeed;
+    this.life -= dt;
+    if (this.life <= 0) this.dead = true;
+  }
+  draw(ctx) {
+    const alpha = Math.max(0, this.life / this.maxLife);
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.globalAlpha = alpha;
+    if (this.shape === 'emoji') {
+      ctx.font = `${this.size}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.emoji, 0, 0);
+    } else if (this.shape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size, 0, Math.PI*2);
+      ctx.fillStyle = this.color;
+      ctx.fill();
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size * 1.6);
+    }
+    ctx.restore();
+  }
+}
+
+// ---- Fire particle ----
+class FireParticle {
+  constructor(x) {
+    this.reset(x);
+  }
+  reset(x) {
+    this.x = x ?? Math.random() * W;
+    this.y = H + 10;
+    this.vy = -(Math.random()*4 + 2);
+    this.vx = (Math.random()-0.5)*1.5;
+    this.life = Math.random()*1.5 + 0.5;
+    this.maxLife = this.life;
+    this.size = Math.random()*20 + 10;
+    this.dead = false;
+  }
+  update(dt) {
+    this.x += this.vx + Math.sin(this.life*8)*0.5;
+    this.y += this.vy;
+    this.vy *= 0.99;
+    this.life -= dt;
+    if (this.life <= 0) this.dead = true;
+  }
+  draw(ctx) {
+    const t = 1 - this.life/this.maxLife;
+    const r = this.size * (1 - t*0.5);
+    const grad = ctx.createRadialGradient(this.x,this.y,0, this.x,this.y,r);
+    if (t < 0.3) {
+      grad.addColorStop(0, `rgba(255,255,200,${0.8*(1-t)})`);
+      grad.addColorStop(0.4, `rgba(255,160,20,${0.6*(1-t)})`);
+      grad.addColorStop(1, `rgba(255,60,0,0)`);
+    } else {
+      grad.addColorStop(0, `rgba(255,100,20,${0.5*(1-t)})`);
+      grad.addColorStop(0.5, `rgba(200,30,0,${0.3*(1-t)})`);
+      grad.addColorStop(1, `rgba(80,0,0,0)`);
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// Active effects
+let activeEffects = [];
+
+function triggerConfetti(params = {}) {
+  const count = params.particle_count || 150;
+  const intensity = params.intensity || 1.0;
+  const colors = params.colors || ['#a855f7','#06b6d4','#f43f5e','#facc15','#22c55e','#3b82f6','#ec4899'];
+  const cx = (params.x ?? 0.5) * W;
+  const cy = (params.y ?? 0.5) * H;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = (Math.random() * 10 + 4) * intensity;
+    particles.push(new Particle({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 4,
+      gravity: 0.12,
+      life: Math.random()*2 + 1.5,
+      size: Math.random()*5 + 2,
+      color: colors[Math.floor(Math.random()*colors.length)],
+      shape: Math.random() > 0.5 ? 'rect' : 'circle',
+    }));
+  }
+}
+
+function triggerEmojiRain(params = {}) {
+  const emoji = params.emoji || '✌️';
+  const count = params.particle_count || 40;
+  const dur = params.duration || 3;
+  let spawned = 0;
+  const interval = setInterval(() => {
+    if (spawned >= count) { clearInterval(interval); return; }
+    particles.push(new Particle({
+      x: Math.random() * W,
+      y: -30,
+      vx: (Math.random()-0.5)*2,
+      vy: Math.random()*2 + 1,
+      gravity: 0.05,
+      friction: 0.999,
+      life: dur + 1,
+      size: Math.random()*20 + 24,
+      shape: 'emoji',
+      emoji: emoji,
+      rotSpeed: (Math.random()-0.5)*0.1,
+    }));
+    spawned++;
+  }, (dur * 1000) / count);
+}
+
+function triggerFire(params = {}) {
+  const duration = params.duration || 3;
+  const intensity = params.intensity || 1;
+  const endTime = performance.now() + duration * 1000;
+  const effect = {
+    type: 'fire',
+    particles: [],
+    endTime,
+    update(dt, now) {
+      if (now < this.endTime) {
+        for (let i = 0; i < 3 * intensity; i++) {
+          this.particles.push(new FireParticle());
+        }
+      }
+      this.particles.forEach(p => p.update(dt));
+      this.particles = this.particles.filter(p => !p.dead);
+      return this.particles.length > 0 || now < this.endTime;
+    },
+    draw(ctx) {
+      ctx.globalCompositeOperation = 'lighter';
+      this.particles.forEach(p => p.draw(ctx));
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  };
+  activeEffects.push(effect);
+}
+
+function triggerScreenShake(params = {}) {
+  const dur = (params.duration || 0.5) * 1000;
+  const intensity = params.intensity || 1;
+  document.body.style.setProperty('--shake-intensity', intensity);
+  document.body.classList.add('shaking');
+  document.body.style.animation = `screenShake ${dur}ms ease-in-out`;
+  setTimeout(() => {
+    document.body.classList.remove('shaking');
+    document.body.style.animation = '';
+  }, dur);
+}
+
+function triggerFlash(params = {}) {
+  flashEl.classList.remove('active');
+  void flashEl.offsetWidth; // reflow
+  const dur = (params.duration || 0.3);
+  flashEl.style.animationDuration = dur + 's';
+  flashEl.classList.add('active');
+  setTimeout(() => flashEl.classList.remove('active'), dur * 1000 + 50);
+}
+
+function triggerTextPop(params = {}) {
+  const text = params.text || 'NICE!';
+  const fontSize = params.font_size || 120;
+  const duration = params.duration || 2;
+  const el = document.createElement('div');
+  el.className = 'text-pop';
+  el.textContent = text;
+  el.style.fontSize = fontSize + 'px';
+  textLayer.appendChild(el);
+  setTimeout(() => el.classList.add('out'), duration * 600);
+  setTimeout(() => el.remove(), duration * 1000);
+}
+
+function triggerSpotlight(params = {}) {
+  spotlightEl.classList.add('active');
+  spotlightEl.style.left = (params.x ?? 0.5) * W + 'px';
+  spotlightEl.style.top = (params.y ?? 0.5) * H + 'px';
+  if (params.duration && params.duration > 0) {
+    setTimeout(() => spotlightEl.classList.remove('active'), params.duration * 1000);
+  }
+}
+
+function triggerScreenGrab(params = {}) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    border: 4px solid #a855f7;
+    box-shadow: inset 0 0 60px rgba(168,85,247,0.3);
+    z-index: 40; pointer-events:none;
+    animation: flashAnim 1.5s ease-out forwards;
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 1500);
+}
+
+// ---- Sound player ----
+function playSound(url) {
+  if (!url) return;
+  try {
+    const audio = new Audio(url);
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+  } catch(e) {}
+}
+
+// ---- Effect dispatcher ----
+function handleEffect(data) {
+  const effect = data.effect;
+  const params = data.params || {};
+
+  if (data.sound) playSound(data.sound);
+
+  switch(effect) {
+    case 'confetti': triggerConfetti(params); break;
+    case 'emoji_rain': triggerEmojiRain(params); break;
+    case 'fire': triggerFire(params); break;
+    case 'screen_shake': triggerScreenShake(params); break;
+    case 'flash': triggerFlash(params); break;
+    case 'text_pop': triggerTextPop(params); break;
+    case 'spotlight': triggerSpotlight(params); break;
+    case 'screen_grab': triggerScreenGrab(params); break;
+  }
+}
+
+// ---- Hand skeleton renderer ----
+let showSkeleton = false;
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [0,9],[9,10],[10,11],[11,12],
+  [0,13],[13,14],[14,15],[15,16],
+  [0,17],[17,18],[18,19],[19,20],
+  [5,9],[9,13],[13,17],
+];
+
+function drawSkeleton(landmarks) {
+  if (!showSkeleton || !landmarks || !landmarks.length) return;
+  skelCtx.clearRect(0, 0, W, H);
+  skelCtx.strokeStyle = 'rgba(6,182,212,0.6)';
+  skelCtx.lineWidth = 2;
+  for (const [a, b] of HAND_CONNECTIONS) {
+    if (landmarks[a] && landmarks[b]) {
+      skelCtx.beginPath();
+      skelCtx.moveTo(landmarks[a][0]*W, landmarks[a][1]*H);
+      skelCtx.lineTo(landmarks[b][0]*W, landmarks[b][1]*H);
+      skelCtx.stroke();
+    }
+  }
+  skelCtx.fillStyle = 'rgba(168,85,247,0.8)';
+  for (const lm of landmarks) {
+    if (lm) {
+      skelCtx.beginPath();
+      skelCtx.arc(lm[0]*W, lm[1]*H, 3, 0, Math.PI*2);
+      skelCtx.fill();
+    }
+  }
+}
+
+// ---- Animation loop ----
+let lastTime = performance.now();
+function animate(now) {
+  const dt = Math.min((now - lastTime) / 1000, 0.1);
+  lastTime = now;
+
+  fxCtx.clearRect(0, 0, W, H);
+
+  // Update & draw particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].update(dt);
+    if (particles[i].dead) { particles.splice(i, 1); continue; }
+    particles[i].draw(fxCtx);
+  }
+
+  // Update & draw active effects (fire, etc.)
+  for (let i = activeEffects.length - 1; i >= 0; i--) {
+    const alive = activeEffects[i].update(dt, now);
+    if (!alive) { activeEffects.splice(i, 1); continue; }
+    activeEffects[i].draw(fxCtx);
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// Clear skeleton when no gesture for a while
+let skelClearTimer;
+function scheduleSkelClear() {
+  clearTimeout(skelClearTimer);
+  skelClearTimer = setTimeout(() => skelCtx.clearRect(0,0,W,H), 500);
+}
+
+// ---- WebSocket connection ----
+function connect() {
+  const ws = new WebSocket(WS_URL);
+  ws.onopen = () => console.log('[CastGesture] Connected');
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'effect') handleEffect(data);
+      if (data.type === 'gesture') {
+        drawSkeleton(data.landmarks);
+        scheduleSkelClear();
+        // Update spotlight position in real-time
+        if (spotlightEl.classList.contains('active')) {
+          spotlightEl.style.left = (data.x ?? 0.5) * W + 'px';
+          spotlightEl.style.top = (data.y ?? 0.5) * H + 'px';
+        }
+      }
+      if (data.type === 'config') {
+        if ('show_skeleton' in data) showSkeleton = data.show_skeleton;
+      }
+    } catch(e) {}
+  };
+  ws.onclose = () => { console.log('[CastGesture] Disconnected, retrying...'); setTimeout(connect, 2000); };
+  ws.onerror = () => ws.close();
+}
+connect();
+
+// Allow URL params for standalone testing
+const urlParams = new URLSearchParams(location.search);
+if (urlParams.get('skeleton') === '1') showSkeleton = true;
+if (urlParams.get('demo')) {
+  setTimeout(() => {
+    triggerConfetti({intensity: 1.5, particle_count: 200});
+    setTimeout(() => triggerTextPop({text: '🎉 CastGesture!', font_size: 100}), 500);
+    setTimeout(() => triggerEmojiRain({emoji: '🔥'}), 1500);
+    setTimeout(() => triggerFire({}), 3000);
+    setTimeout(() => triggerFlash({}), 5000);
+    setTimeout(() => triggerScreenShake({}), 5500);
+  }, 500);
+}
+</script>
+</body>
+</html>

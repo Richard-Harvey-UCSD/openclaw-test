@@ -1,0 +1,77 @@
+mappings:
+  - gesture: open_hand
+    effect: confetti
+    params:
+      intensity: 1.0
+      particle_count: 150
+      colors: ["#a855f7", "#06b6d4", "#f43f5e", "#facc15", "#22c55e"]
+    sound: pop
+    cooldown: 1.0
+
+  - gesture: fist
+    effect: screen_shake
+    params:
+      intensity: 1.0
+      duration: 0.5
+    sound: explosion
+    cooldown: 1.0
+
+  - gesture: peace
+    effect: emoji_rain
+    params:
+      emoji: "✌️"
+      particle_count: 40
+      duration: 3.0
+    sound: pop
+    cooldown: 2.0
+
+  - gesture: thumbs_up
+    effect: text_pop
+    params:
+      text: "NICE!"
+      font_size: 120
+      duration: 2.0
+    sound: tada
+    cooldown: 1.5
+
+  - gesture: pointing
+    effect: spotlight
+    params:
+      intensity: 1.0
+      duration: 0
+    cooldown: 0.5
+
+  - gesture: rock_on
+    effect: fire
+    params:
+      intensity: 1.2
+      duration: 3.0
+    sound: whoosh
+    cooldown: 2.0
+
+  - gesture: ok_sign
+    effect: flash
+    params:
+      intensity: 1.0
+      duration: 0.3
+    sound: ding
+    cooldown: 1.0
+
+sequences:
+  - gestures: [fist, open_hand]
+    effect: confetti
+    params:
+      intensity: 2.0
+      particle_count: 300
+      colors: ["#a855f7", "#06b6d4", "#f43f5e", "#facc15", "#22c55e", "#3b82f6", "#ec4899"]
+    sound: applause
+    timeout: 1.0
+    cooldown: 2.0
+
+  - gestures: [peace, fist]
+    effect: screen_grab
+    params:
+      intensity: 1.0
+      duration: 1.5
+    timeout: 1.0
+    cooldown: 2.0

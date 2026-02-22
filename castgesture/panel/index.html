@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CastGesture — Control Panel</title>
+<style>
+  :root {
+    --bg: #0f0f14;
+    --bg2: #1a1a24;
+    --bg3: #24243a;
+    --purple: #a855f7;
+    --cyan: #06b6d4;
+    --pink: #ec4899;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --border: #2d2d44;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Layout */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header h1 {
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header .status {
+    display: flex; gap: 16px; font-size: 13px; color: var(--text2);
+  }
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 4px; vertical-align: middle;
+  }
+  .status-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.off { background: var(--danger); }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 32px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 24px;
+    border-bottom: 1px solid var(--border); padding-bottom: 0;
+  }
+  .tab {
+    padding: 10px 20px; cursor: pointer;
+    color: var(--text2); font-size: 14px; font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+  }
+  .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text2); }
+
+  /* Mappings grid */
+  .mappings-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .mapping-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+    display: flex; align-items: center; gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .mapping-card:hover { border-color: var(--purple); }
+  .mapping-card .gesture-icon {
+    width: 48px; height: 48px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+  }
+  .mapping-card .mapping-info { flex: 1; }
+  .mapping-card .gesture-name { font-weight: 600; font-size: 14px; }
+  .mapping-card .effect-name { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .mapping-card .mapping-actions { display: flex; gap: 6px; }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px; border: none; border-radius: 6px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--purple), #7c3aed);
+    color: white;
+  }
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+  .btn-outline {
+    background: transparent; border: 1px solid var(--border); color: var(--text2);
+  }
+  .btn-outline:hover { border-color: var(--purple); color: var(--text); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-test {
+    background: var(--bg3); border: 1px solid var(--cyan); color: var(--cyan);
+  }
+  .btn-test:hover { background: var(--cyan); color: var(--bg); }
+
+  /* Inputs */
+  input, select {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 12px; border-radius: 6px;
+    font-size: 13px; width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--purple); }
+  label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+  .form-group { margin-bottom: 16px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Effects preview */
+  .effects-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  .effect-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; text-align: center;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .effect-card:hover { border-color: var(--cyan); transform: translateY(-2px); }
+  .effect-card .effect-icon { font-size: 32px; margin-bottom: 8px; }
+  .effect-card .effect-label { font-size: 13px; font-weight: 500; }
+
+  /* Live gesture */
+  .gesture-live {
+    text-align: center; padding: 32px;
+    font-size: 48px; color: var(--text2);
+    min-height: 120px; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px;
+  }
+  .gesture-live .gesture-label { font-size: 14px; color: var(--text2); }
+  .gesture-live.detected { color: var(--purple); }
+
+  /* Toggle */
+  .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle .slider {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 22px; cursor: pointer; transition: 0.2s;
+  }
+  .toggle .slider::before {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 2px; bottom: 2px; background: var(--text2);
+    border-radius: 50%; transition: 0.2s;
+  }
+  .toggle input:checked + .slider { background: var(--purple); border-color: var(--purple); }
+  .toggle input:checked + .slider::before { transform: translateX(18px); background: white; }
+
+  .inline-toggle { display: flex; align-items: center; gap: 8px; }
+  .inline-toggle label { margin: 0; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg3); border: 1px solid var(--purple);
+    border-radius: 8px; padding: 12px 20px; font-size: 13px;
+    transform: translateY(100px); opacity: 0; transition: all 0.3s;
+    z-index: 1000;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🤚 CastGesture</h1>
+  <div class="status">
+    <span><span class="status-dot" id="ws-status"></span> Server</span>
+    <span><span class="status-dot" id="obs-status"></span> OBS</span>
+    <span><span class="status-dot" id="twitch-status"></span> Twitch</span>
+    <span id="client-count" style="color:var(--text2)">0 overlay clients</span>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" data-tab="mappings">Gesture Mappings</div>
+    <div class="tab" data-tab="effects">Effects</div>
+    <div class="tab" data-tab="obs">OBS</div>
+    <div class="tab" data-tab="twitch">Twitch</div>
+    <div class="tab" data-tab="settings">Settings</div>
+  </div>
+
+  <!-- Mappings Tab -->
+  <div class="tab-content active" id="tab-mappings">
+    <div class="card">
+      <h2>Live Gesture Detection</h2>
+      <div class="gesture-live" id="live-gesture">
+        <span>👋</span>
+        <span class="gesture-label">Waiting for gesture...</span>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="margin:0">Gesture → Effect Mappings</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="exportConfig()">Export</button>
+          <button class="btn btn-outline btn-sm" onclick="importConfig()">Import</button>
+          <button class="btn btn-primary btn-sm" onclick="saveMappings()">💾 Save</button>
+        </div>
+      </div>
+      <div class="mappings-grid" id="mappings-grid"></div>
+    </div>
+  </div>
+
+  <!-- Effects Tab -->
+  <div class="tab-content" id="tab-effects">
+    <div class="card">
+      <h2>Test Effects</h2>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Click any effect to preview it on the overlay.</p>
+      <div class="effects-grid" id="effects-grid"></div>
+    </div>
+  </div>
+
+  <!-- OBS Tab -->
+  <div class="tab-content" id="tab-obs">
+    <div class="card">
+      <h2>OBS WebSocket Connection</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>WebSocket URL</label>
+          <input type="text" id="obs-url" value="ws://localhost:4455" placeholder="ws://localhost:4455">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="obs-password" placeholder="OBS WebSocket password">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveOBSConfig()">Connect & Save</button>
+    </div>
+    <div class="card">
+      <h2>Scenes</h2>
+      <div id="obs-scenes" style="color:var(--text2);font-size:13px">Connect to OBS to see scenes.</div>
+    </div>
+  </div>
+
+  <!-- Twitch Tab -->
+  <div class="tab-content" id="tab-twitch">
+    <div class="card">
+      <h2>Twitch Integration</h2>
+      <div class="form-group">
+        <div class="inline-toggle">
+          <label class="toggle"><input type="checkbox" id="twitch-enabled"><span class="slider"></span></label>
+          <label style="font-size:14px;color:var(--text)">Enable Twitch Bot</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Channel</label>
+          <input type="text" id="twitch-channel" placeholder="your_channel">
+        </div>
+        <div class="form-group">
+          <label>Bot Name</label>
+          <input type="text" id="twitch-bot-name" value="CastGestureBot">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>OAuth Token</label>
+        <input type="password" id="twitch-token" placeholder="oauth:xxxxxxxx">
+      </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Viewers can type <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">!effect confetti</code> in chat to trigger effects.
+      </p>
+      <button class="btn btn-primary" onclick="saveTwitchConfig()">Save & Connect</button>
+    </div>
+  </div>
+
+  <!-- Settings Tab -->
+  <div class="tab-content" id="tab-settings">
+    <div class="card">
+      <h2>Camera</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Camera Index</label>
+          <input type="number" id="camera-index" value="0" min="0">
+        </div>
+        <div class="form-group">
+          <label>FPS</label>
+          <input type="number" id="camera-fps" value="30" min="1" max="60">
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Overlay</h2>
+      <div class="form-group">
+        <div class="inline-toggle">
+          <label class="toggle"><input type="checkbox" id="show-skeleton"><span class="slider"></span></label>
+          <label style="font-size:14px;color:var(--text)">Show hand skeleton on overlay</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Overlay URL (add as OBS Browser Source)</label>
+        <input type="text" readonly id="overlay-url" style="cursor:pointer" onclick="this.select();document.execCommand('copy');showToast('Copied!')">
+      </div>
+    </div>
+    <div class="card">
+      <h2>About</h2>
+      <p style="font-size:13px;color:var(--text2)">CastGesture v1.0 — Powered by <a href="https://github.com/yourorg/gesture-engine" target="_blank">GestureEngine</a></p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = `${location.protocol}//${location.hostname}:${location.port || 7555}`;
+const WS_URL = `ws://${location.hostname}:${location.port || 7555}/ws`;
+let ws;
+
+const GESTURE_ICONS = {
+  open_hand:'🖐️', fist:'✊', peace:'✌️', thumbs_up:'👍',
+  pointing:'👆', rock_on:'🤟', ok_sign:'👌', wave:'👋',
+};
+const EFFECT_ICONS = {
+  confetti:'🎉', emoji_rain:'🌧️', fire:'🔥', screen_shake:'📳',
+  flash:'⚡', text_pop:'💬', spotlight:'🔦', screen_grab:'🫳',
+};
+
+// --- Tabs ---
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// --- WebSocket ---
+function connectWS() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    document.getElementById('ws-status').classList.add('on');
+    document.getElementById('ws-status').classList.remove('off');
+    refreshAll();
+  };
+  ws.onclose = () => {
+    document.getElementById('ws-status').classList.remove('on');
+    document.getElementById('ws-status').classList.add('off');
+    setTimeout(connectWS, 3000);
+  };
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'gesture') {
+      const el = document.getElementById('live-gesture');
+      el.classList.add('detected');
+      el.innerHTML = `<span>${GESTURE_ICONS[data.gesture]||'🤚'}</span><span class="gesture-label">${data.gesture}</span>`;
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => {
+        el.classList.remove('detected');
+        el.innerHTML = '<span>👋</span><span class="gesture-label">Waiting for gesture...</span>';
+      }, 2000);
+    }
+  };
+  ws.onerror = () => ws.close();
+}
+connectWS();
+
+// --- Data loading ---
+async function refreshAll() {
+  try {
+    const [mappings, effects, status, config] = await Promise.all([
+      fetch(API+'/api/mappings').then(r=>r.json()),
+      fetch(API+'/api/effects').then(r=>r.json()),
+      fetch(API+'/api/status').then(r=>r.json()),
+      fetch(API+'/api/config').then(r=>r.json()),
+    ]);
+    renderMappings(mappings);
+    renderEffects(effects);
+    updateStatus(status);
+    updateConfig(config);
+  } catch(e) {
+    console.warn('Failed to load', e);
+  }
+}
+
+function updateStatus(s) {
+  document.getElementById('obs-status').className = 'status-dot ' + (s.obs_connected ? 'on' : 'off');
+  document.getElementById('twitch-status').className = 'status-dot ' + (s.twitch_connected ? 'on' : 'off');
+  document.getElementById('client-count').textContent = s.clients + ' overlay client' + (s.clients!==1?'s':'');
+}
+
+function updateConfig(c) {
+  document.getElementById('overlay-url').value = `${location.protocol}//${location.hostname}:${location.port||7555}/overlay/`;
+  document.getElementById('obs-url').value = c.obs_ws_url || '';
+  document.getElementById('twitch-enabled').checked = c.twitch_enabled;
+  document.getElementById('twitch-channel').value = c.twitch_channel || '';
+  document.getElementById('camera-index').value = c.camera_index ?? 0;
+}
+
+function renderMappings(data) {
+  const grid = document.getElementById('mappings-grid');
+  grid.innerHTML = '';
+  for (const [gesture, info] of Object.entries(data.mappings || {})) {
+    const card = document.createElement('div');
+    card.className = 'mapping-card';
+    card.innerHTML = `
+      <div class="gesture-icon">${GESTURE_ICONS[gesture]||'🤚'}</div>
+      <div class="mapping-info">
+        <div class="gesture-name">${gesture.replace(/_/g,' ')}</div>
+        <div class="effect-name">${EFFECT_ICONS[info.effect]||''} ${info.effect.replace(/_/g,' ')}</div>
+      </div>
+      <div class="mapping-actions">
+        <button class="btn btn-test btn-sm" onclick="testEffect('${info.effect}')">Test</button>
+        <button class="btn btn-outline btn-sm" onclick="removeMapping('${gesture}')">✕</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+  if (data.sequences) {
+    for (const seq of data.sequences) {
+      const card = document.createElement('div');
+      card.className = 'mapping-card';
+      card.style.borderColor = 'var(--pink)';
+      card.innerHTML = `
+        <div class="gesture-icon" style="background:linear-gradient(135deg,var(--pink),var(--purple))">⚡</div>
+        <div class="mapping-info">
+          <div class="gesture-name">${seq.gestures.join(' → ')}</div>
+          <div class="effect-name">${EFFECT_ICONS[seq.effect]||''} ${seq.effect.replace(/_/g,' ')} (sequence)</div>
+        </div>
+        <div class="mapping-actions">
+          <button class="btn btn-test btn-sm" onclick="testEffect('${seq.effect}')">Test</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+  }
+}
+
+function renderEffects(effects) {
+  const grid = document.getElementById('effects-grid');
+  grid.innerHTML = '';
+  for (const [name, params] of Object.entries(effects)) {
+    const card = document.createElement('div');
+    card.className = 'effect-card';
+    card.onclick = () => testEffect(name);
+    card.innerHTML = `
+      <div class="effect-icon">${EFFECT_ICONS[name]||'✨'}</div>
+      <div class="effect-label">${name.replace(/_/g,' ')}</div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+// --- Actions ---
+async function testEffect(name) {
+  await fetch(API+`/api/test/${name}`, {method:'POST'});
+  showToast(`Triggered ${name}!`);
+}
+
+async function removeMapping(gesture) {
+  await fetch(API+`/api/mappings/${gesture}`, {method:'DELETE'});
+  refreshAll();
+}
+
+async function saveMappings() {
+  await fetch(API+'/api/mappings/save', {method:'POST'});
+  showToast('Mappings saved!');
+}
+
+async function saveOBSConfig() {
+  await fetch(API+'/api/config', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      obs_ws_url: document.getElementById('obs-url').value,
+      obs_ws_password: document.getElementById('obs-password').value,
+    }),
+  });
+  showToast('OBS config saved! Restart server to reconnect.');
+}
+
+async function saveTwitchConfig() {
+  await fetch(API+'/api/config', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      twitch_enabled: document.getElementById('twitch-enabled').checked,
+      twitch_channel: document.getElementById('twitch-channel').value,
+      twitch_bot_name: document.getElementById('twitch-bot-name').value,
+      twitch_oauth_token: document.getElementById('twitch-token').value,
+    }),
+  });
+  showToast('Twitch config saved! Restart server to apply.');
+}
+
+function exportConfig() {
+  fetch(API+'/api/mappings').then(r=>r.json()).then(data => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'castgesture-config.json';
+    a.click();
+  });
+}
+
+function importConfig() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json,.yml,.yaml';
+  input.onchange = async (e) => {
+    const text = await e.target.files[0].text();
+    const data = JSON.parse(text);
+    for (const [gesture, info] of Object.entries(data.mappings || {})) {
+      await fetch(API+'/api/mappings', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({gesture, ...info}),
+      });
+    }
+    refreshAll();
+    showToast('Config imported!');
+  };
+  input.click();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Poll status every 5s
+setInterval(async () => {
+  try {
+    const s = await fetch(API+'/api/status').then(r=>r.json());
+    updateStatus(s);
+  } catch(e) {}
+}, 5000);
+</script>
+</body>
+</html>

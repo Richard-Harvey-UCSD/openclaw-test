@@ -2,6 +2,16 @@
 
 **Real-time hand gesture recognition for edge devices.** No cloud. No latency. Just hands.
 
+---
+
+> ### 🚀 **NEW: [CastGesture](castgesture/) — Gesture-Powered Streaming Effects**
+>
+> Trigger confetti, fire, emoji rain, and custom effects on your OBS stream — just by making hand gestures on your webcam. Built on GestureEngine.
+>
+> **[Get Started →](castgesture/README.md)** · [Landing Page](castgesture/landing/) · [Live Demo](castgesture/overlay/index.html?demo=1)
+
+---
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org)
 [![Tests](https://github.com/yourorg/gesture-engine/actions/workflows/test.yml/badge.svg)](https://github.com/yourorg/gesture-engine/actions)
