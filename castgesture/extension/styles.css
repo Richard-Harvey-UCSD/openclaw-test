@@ -1,0 +1,15 @@
+/* CastGesture — Injected overlay styles */
+#castgesture-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  overflow: hidden !important;
+}
+
+#castgesture-overlay * {
+  pointer-events: none !important;
+}

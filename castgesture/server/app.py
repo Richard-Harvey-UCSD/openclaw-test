@@ -119,8 +119,23 @@ async def lifespan(app: FastAPI):
     mapping_engine = MappingEngine(config.mappings_file)
     logger.info(f"Loaded {len(mapping_engine.mappings)} gesture mappings")
 
-    # Start camera loop
-    camera_task = asyncio.create_task(camera_loop())
+    # Start camera loop or demo mode
+    import os
+    if os.environ.get("CASTGESTURE_DEMO") == "1" and os.environ.get("CASTGESTURE_DEMO_MODE") != "interactive":
+        from .demo import run_demo_timeline, DEFAULT_TIMELINE
+        import json
+        timeline = DEFAULT_TIMELINE
+        timeline_path = os.environ.get("CASTGESTURE_DEMO_TIMELINE")
+        if timeline_path:
+            timeline = json.loads(Path(timeline_path).read_text())
+        loop = os.environ.get("CASTGESTURE_DEMO_NO_LOOP") != "1"
+        camera_task = asyncio.create_task(
+            run_demo_timeline(broadcast, mapping_engine, timeline, loop=loop,
+                              get_sound_fn=get_sound_for_effect, sounds_dir=config.sounds_dir)
+        )
+        logger.info("Demo mode active — broadcasting scripted gestures")
+    else:
+        camera_task = asyncio.create_task(camera_loop())
 
     # Connect to OBS if configured
     if config.obs_ws_url:
