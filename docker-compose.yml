@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  gesture-engine:
+    build: .
+    ports:
+      - "8765:8765"
+    devices:
+      - /dev/video0:/dev/video0
+    environment:
+      - GESTURE_ENGINE_LOG_LEVEL=info
+    volumes:
+      - ./config:/app/config:ro
+      - ./models:/app/models
+      - ./recordings:/app/recordings
+    restart: unless-stopped
+    command: ["serve", "--port", "8765", "--actions", "/app/config/actions.example.yml"]

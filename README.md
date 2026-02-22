@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org)
+[![Tests](https://github.com/yourorg/gesture-engine/actions/workflows/test.yml/badge.svg)](https://github.com/yourorg/gesture-engine/actions)
 
 GestureEngine turns any RGB camera into a gesture input device. It runs on a Raspberry Pi, ships with a WebSocket streaming API, and recognizes both individual gestures and multi-gesture sequences — all in under 5ms per frame.
 
@@ -14,25 +15,38 @@ GestureEngine turns any RGB camera into a gesture input device. It runs on a Ras
 ```bash
 git clone https://github.com/yourorg/gesture-engine.git
 cd gesture-engine
-pip install -e ".[server]"
+pip install -e ".[all,cli]"
 
 # Start the WebSocket server + web demo
-python -m gesture_engine --port 8765
+gesture-engine serve --port 8765
 
 # Open http://localhost:8765 in your browser
 ```
 
-## 🎯 What It Does
+### Docker (one command)
+
+```bash
+docker-compose up --build
+# Open http://localhost:8765
+```
+
+## 🎯 Features
 
 | Feature | Description |
 |---------|-------------|
 | **7 built-in gestures** | open_hand, fist, thumbs_up, peace, pointing, rock_on, ok_sign |
 | **6 gesture sequences** | release, grab, wave, peace_out, pinch_release, point_and_click |
-| **WebSocket streaming** | Real-time gesture events pushed to any client |
+| **Action mapping** | Map gestures to keyboard shortcuts, shell commands, webhooks, OSC |
+| **CLI toolchain** | `serve`, `train`, `record`, `replay`, `benchmark`, `define`, `export` |
+| **ONNX/TFLite export** | Edge deployment with INT8 quantization for Pi hardware |
+| **Hand tracking** | Stable hand IDs across frames for multi-hand use |
+| **Adaptive thresholds** | Auto-adjusting confidence per gesture based on confusion rates |
+| **Performance profiler** | Per-stage timing (detection, classification, sequences) |
+| **WebSocket streaming** | Real-time events pushed to any client |
 | **Browser demo** | Dark-themed live UI with confidence meters and timeline |
 | **Recording & replay** | Capture sessions for testing without a camera |
-| **Benchmark suite** | Measure latency and throughput on your hardware |
-| **Custom gestures** | Define via JSON or train an MLP classifier |
+| **Docker support** | One-command demo with webcam passthrough |
+| **CI/CD** | GitHub Actions with pytest on Python 3.10-3.12 |
 
 ## 🏗 Architecture
 
@@ -45,212 +59,155 @@ Camera Frame (RGB)
 └──────┬──────┘
        │ Normalized landmarks (wrist-centered, scale-invariant)
        ▼
+┌─────────────┐
+│ HandTracker  │  ← Stable hand IDs via centroid matching
+└──────┬──────┘
+       │
+       ▼
 ┌──────────────────┐
 │ GestureClassifier │  ← Rule-based OR trained MLP (81-dim features)
 └──────┬───────────┘
        │
-       ├──▶ GesturePipeline  ← Temporal smoothing, cooldown, callbacks
+       ▼
+┌────────────────────┐
+│ AdaptiveThresholds  │  ← Per-gesture confidence auto-tuning
+└──────┬─────────────┘
        │
-       └──▶ SequenceDetector ← Multi-gesture pattern matching
-              │
-              ▼
-         WebSocket Server  ← FastAPI/uvicorn → Browser clients
+  ┌────┴────┐
+  ▼         ▼
+Gesture   Sequence     →  ActionMapper  →  Keyboard / Shell / Webhook / OSC
+Events    Detection
 ```
 
-### Design Decisions
-
-- **Landmark-based, not pixel-based.** Classify hand geometry, not images. Makes the model tiny and position/scale invariant.
-- **81-dimensional feature vector** — fingertip distances, extension ratios, palm orientation. Not just raw coordinates.
-- **Temporal smoothing** via majority vote eliminates single-frame jitter.
-- **Sequence detection** watches for gesture transitions within time windows (e.g., fist→open_hand = "release").
-
-## 🖥 WebSocket Streaming Server
-
-The server captures from the webcam and pushes gesture events to all connected WebSocket clients:
+## 🖥 CLI Reference
 
 ```bash
-# Start server
-python -m gesture_engine --host 0.0.0.0 --port 8765
+# Start the server with action mappings
+gesture-engine serve --port 8765 --actions config/actions.example.yml
 
-# Or via uvicorn directly
-uvicorn gesture_engine.server:app --host 0.0.0.0 --port 8765
+# Record gesture data from camera
+gesture-engine record -o session.json --duration 30
+
+# Train MLP classifier from recordings
+gesture-engine train ./recordings/ --output model.pt --epochs 200
+
+# Replay a recorded session
+gesture-engine replay session.json --speed 2.0
+
+# Run benchmarks
+gesture-engine benchmark --iterations 5000
+
+# Define a gesture interactively
+gesture-engine define
+
+# Export model for edge deployment
+gesture-engine export model.pt --format onnx --output gesture_model
+gesture-engine export model.pt --format tflite --int8
 ```
 
-**Endpoints:**
-- `GET /` — Web demo UI
-- `GET /api/status` — Server stats (FPS, latency, clients)
-- `GET /api/gestures` — Registered gesture definitions
-- `WS /ws` — Real-time gesture event stream
+## ⚡ Action Mapping
 
-**WebSocket message types:**
-```json
-{"type": "gesture", "gesture": "peace", "confidence": 0.95, "hand_index": 0, "timestamp": 1708000000.0}
-{"type": "sequence", "sequence": "grab", "gestures": ["open_hand", "fist"], "duration": 0.8}
-{"type": "stats", "fps": 28.5, "latency_ms": 35.1, "hands_detected": 1}
+Map gestures to real actions via YAML config:
+
+```yaml
+# config/actions.yml
+mappings:
+  - trigger: thumbs_up
+    min_confidence: 0.8
+    actions:
+      - type: keyboard
+        params: { keys: "space" }
+        description: "Play/pause media"
+        cooldown: 1.0
+
+  - trigger: pointing
+    actions:
+      - type: keyboard
+        params: { keys: "Right" }
+        cooldown: 1.5
+
+  - trigger: grab  # sequence trigger
+    actions:
+      - type: webhook
+        params:
+          url: "http://localhost:8080/api/grab"
+        cooldown: 2.0
+
+  - trigger: fist
+    actions:
+      - type: osc
+        params:
+          address: "/gesture/fist"
+          port: 9000
 ```
 
-## 🌐 Browser Demo
+Action types: `keyboard` (xdotool), `shell`, `webhook` (HTTP POST), `osc`, `log`.
 
-Open `http://localhost:8765` after starting the server. Features:
+## 📦 Model Export
 
-- **Live gesture display** with emoji and confidence meter
-- **Gesture sequence detection** highlighted in gold
-- **Event timeline** with timestamps
-- **Real-time metrics** — FPS, latency, hand count
-- Dark theme, no JavaScript frameworks, pure CSS
-
-## 🎬 Recording & Replay
-
-Record gesture sessions for reproducible testing:
+Export trained models for edge deployment:
 
 ```python
-from gesture_engine import GestureRecorder, GesturePlayer
+from gesture_engine.classifier import GestureClassifier
+from gesture_engine.export import ModelExporter
 
-# Record
-recorder = GestureRecorder()
-recorder.start()
-recorder.add_frame(hand_landmarks, [{"name": "peace", "confidence": 0.9}])
-recorder.stop()
-recorder.save("session.json")           # JSON format
-recorder.save_compact("session.npz")    # Compact binary
+classifier = GestureClassifier(model_path="model.pt")
+exporter = ModelExporter(classifier)
 
-# Replay
-player = GesturePlayer.load("session.json")
-for frame in player.play():             # Instant playback
-    process(frame.hands)
+# ONNX (universal)
+exporter.to_onnx("gesture_model.onnx")
 
-for frame in player.play_realtime(speed=2.0):  # 2x speed
-    process(frame.hands)
+# TFLite with INT8 quantization (Raspberry Pi)
+exporter.to_tflite("gesture_model.tflite", quantize_int8=True, representative_data=X)
 ```
 
-Useful for:
-- CI pipelines on headless machines
-- Demo recordings without camera access
-- Regression testing
+## 📊 Performance Profiling
 
-## 🔗 Gesture Sequences
-
-Detect compound gestures — ordered transitions within a time window:
+Every pipeline stage is instrumented:
 
 ```python
-from gesture_engine import SequenceDetector, GestureSequence
+pipeline = GesturePipeline(enable_profiling=True)
+# ... process frames ...
 
-detector = SequenceDetector.with_defaults()
-
-# Built-in sequences:
-# fist → open_hand    = "release"
-# open_hand → fist    = "grab"
-# peace → fist        = "peace_out"
-# pointing → fist     = "point_and_click"
-# ok_sign → open_hand = "pinch_release"
-# open_hand → fist → open_hand = "wave"
-
-# Custom sequences:
-detector.register(GestureSequence(
-    name="swipe_right",
-    gestures=["pointing", "open_hand"],
-    max_duration=1.0,
-))
-
-# Feed gesture observations
-events = detector.feed("fist")
-events = detector.feed("open_hand")  # → triggers "release"
+stats = pipeline.stats
+print(stats.profiler_summary)
+# {'detection': {'avg_ms': 2.1, 'p95_ms': 3.4, ...},
+#  'classification': {'avg_ms': 0.3, 'p95_ms': 0.5, ...}, ...}
 ```
 
-## 📊 Benchmarks
-
-```bash
-python examples/benchmark.py
-python examples/benchmark.py --iterations 5000 --hands 2
-```
-
-Sample output (Raspberry Pi 4):
-
-```
-  ╭──────────────────────────────────────────────────╮
-  │ Rule-Based Classification                        │
-  ├──────────────────────────────────────────────────┤
-  │ Mean latency         0.042 ms                    │
-  │ P95 latency          0.055 ms                    │
-  │ Throughput       23,809 classifications/sec      │
-  ╰──────────────────────────────────────────────────╯
-```
-
-## 🎨 Custom Gestures
-
-### JSON (Zero-Shot)
-
-```json
-{
-  "gestures": [{
-    "name": "gun",
-    "fingers": { "thumb": "extended", "index": "extended", "middle": "curled", "ring": "curled", "pinky": "curled" },
-    "constraints": [{ "type": "angle", "landmarks": [4, 0, 8], "min_angle": 30, "max_angle": 90 }]
-  }]
-}
-```
-
-### Train MLP (Higher Accuracy)
-
-```python
-from gesture_engine import GestureClassifier
-classifier = GestureClassifier()
-stats = classifier.train(X_landmarks, y_labels, epochs=100, save_path="model.pt")
-```
-
-## 📁 Project Structure
-
-```
-src/gesture_engine/
-├── __init__.py        # Public API
-├── detector.py        # MediaPipe hand detection + normalization
-├── classifier.py      # Rule-based + MLP classification
-├── gestures.py        # Gesture definitions + registry
-├── pipeline.py        # Real-time pipeline with smoothing
-├── sequences.py       # Multi-gesture sequence detection
-├── recorder.py        # Record & replay gesture sessions
-└── server.py          # WebSocket streaming server (FastAPI)
-examples/
-├── web_demo/          # Browser-based live demo
-│   └── index.html
-├── benchmark.py       # Performance measurement suite
-├── demo_webcam.py     # Live camera demo
-└── demo_collect.py    # Training data collection
-tests/                 # pytest test suite
-```
-
-## 🛠 Installation
+## 🔧 Installation
 
 ```bash
 # Core (detection + classification)
 pip install -e .
 
-# With WebSocket server
-pip install -e ".[server]"
-
-# With ML training
-pip install -e ".[train]"
+# With server
+pip install -e ".[server,cli]"
 
 # Everything
-pip install -e ".[all]"
+pip install -e ".[all,cli,export]"
+
+# Development
+pip install -e ".[dev]"
 ```
 
-**Requirements:** Python 3.10+, a webcam (optional — use recordings for testing)
+## 🧪 Testing
 
-## API Reference
-
-```python
-from gesture_engine import (
-    GesturePipeline,     # End-to-end: frame → events
-    HandDetector,        # MediaPipe landmark extraction
-    GestureClassifier,   # Rule-based + MLP classification
-    GestureRegistry,     # Gesture definition management
-    SequenceDetector,    # Multi-gesture sequences
-    GestureRecorder,     # Session recording
-    GesturePlayer,       # Session replay
-)
+```bash
+pytest tests/ -v
 ```
 
-## License
+## 🐳 Docker
 
-[MIT](LICENSE)
+```bash
+# Build and run with webcam
+docker-compose up --build
+
+# Or standalone
+docker build -t gesture-engine .
+docker run -p 8765:8765 --device /dev/video0 gesture-engine
+```
+
+## 📄 License
+
+MIT

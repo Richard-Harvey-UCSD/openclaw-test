@@ -1,0 +1,92 @@
+# GestureEngine Action Mappings
+# Copy to actions.yml and customize
+
+mappings:
+  # --- Individual Gestures ---
+
+  - trigger: thumbs_up
+    min_confidence: 0.8
+    actions:
+      - type: log
+        params:
+          message: "Thumbs up detected!"
+
+      - type: keyboard
+        params:
+          keys: "space"
+        description: "Play/pause media"
+        cooldown: 1.0
+
+  - trigger: open_hand
+    min_confidence: 0.7
+    actions:
+      - type: webhook
+        params:
+          url: "http://localhost:8080/api/gesture"
+          body:
+            action: "stop"
+        cooldown: 2.0
+
+  - trigger: pointing
+    min_confidence: 0.8
+    actions:
+      - type: keyboard
+        params:
+          keys: "Right"
+        description: "Next slide"
+        cooldown: 1.5
+
+  - trigger: peace
+    min_confidence: 0.8
+    actions:
+      - type: keyboard
+        params:
+          keys: "Left"
+        description: "Previous slide"
+        cooldown: 1.5
+
+  - trigger: fist
+    min_confidence: 0.8
+    actions:
+      - type: osc
+        params:
+          address: "/gesture/fist"
+          host: "127.0.0.1"
+          port: 9000
+          args: [1.0]
+        description: "Send OSC trigger"
+
+  # --- Gesture Sequences ---
+
+  - trigger: grab
+    actions:
+      - type: shell
+        params:
+          command: "notify-send 'GestureEngine' 'Grab detected'"
+          timeout: 5
+        cooldown: 2.0
+
+  - trigger: release
+    actions:
+      - type: shell
+        params:
+          command: "notify-send 'GestureEngine' 'Release detected'"
+          timeout: 5
+        cooldown: 2.0
+
+  - trigger: wave
+    actions:
+      - type: webhook
+        params:
+          url: "http://localhost:8080/api/gesture"
+          body:
+            action: "wave_greeting"
+        cooldown: 3.0
+
+  # Disabled example
+  - trigger: rock_on
+    enabled: false
+    actions:
+      - type: shell
+        params:
+          command: "echo 'Rock on!'"

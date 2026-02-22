@@ -1,25 +1,42 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "gesture-engine"
-version = "0.2.0"
+version = "0.3.0"
 description = "Real-time on-device hand gesture recognition"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = [
-    "mediapipe>=0.10.0",
-    "opencv-python>=4.8.0",
     "numpy>=1.24.0",
+    "pyyaml>=6.0",
 ]
 
+[project.scripts]
+gesture-engine = "gesture_engine.cli:main"
+
 [project.optional-dependencies]
+camera = ["mediapipe>=0.10.0", "opencv-python>=4.8.0"]
 train = ["torch>=2.0.0"]
 server = ["fastapi>=0.100.0", "uvicorn[standard]>=0.23.0"]
+export = ["onnx>=1.14.0", "onnxruntime>=1.15.0"]
+tflite = ["onnx>=1.14.0", "tensorflow>=2.13.0", "onnx2tf>=1.10.0"]
+cli = ["typer>=0.9.0"]
+osc = ["python-osc>=1.8.0"]
 dev = ["pytest>=7.0", "ruff>=0.1.0"]
-all = ["torch>=2.0.0", "fastapi>=0.100.0", "uvicorn[standard]>=0.23.0"]
+all = [
+    "mediapipe>=0.10.0",
+    "opencv-python>=4.8.0",
+    "torch>=2.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "typer>=0.9.0",
+    "onnx>=1.14.0",
+    "onnxruntime>=1.15.0",
+    "python-osc>=1.8.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
